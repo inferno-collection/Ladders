@@ -1,4 +1,4 @@
--- Inferno Collection Ladders Version 1.0 Alpha
+-- Inferno Collection Ladders Version 1.1 Alpha
 --
 -- Copyright (c) 2019, Christopher M, Inferno Collection. All rights reserved.
 --
@@ -16,9 +16,9 @@
 
 local Config = {} -- Do not edit this line
 
--- Model names of Vehicles that ladders can be collected from
+-- Model names of Vehicles that ladders can be collected from, and how many ladders they have
 Config.Vehicles = {
-    "firetruk"
+    firetruk = 2
 }
 
 --
@@ -28,12 +28,13 @@ Config.Vehicles = {
 
 -- Synced table accross all clients and the server
 local Ladders = {}
--- NetID of ladder this client is using
+
 local Climbing = false
 local Carrying = false
 local ClimbingLadder = false
 local Preview = false
 local PreviewToggle = true
+local Clipset = false
 
 -- Ladder command
 RegisterCommand("ladder", function(source, Args)
@@ -42,40 +43,71 @@ RegisterCommand("ladder", function(source, Args)
 
         if Action == "collect" then
             if not Carrying then
-                local TruckTest = NearTruck()
+                local Truck = TruckTest()
 
-                if TruckTest then
-                    local PlayerPed = PlayerPedId()
-                    local LadderCoords = GetOffsetFromEntityInWorldCoords(PlayerPed, 0.0, 1.0, 0.0)
-                    local Ladder = CreateObjectNoOffset(GetHashKey("prop_byard_ladder01"), LadderCoords, true, false, false)
-                    local LadderNetID = ObjToNet(Ladder)
-                    SetEntityAsMissionEntity(Ladder)
-                    SetNetworkIdCanMigrate(LadderNetID, true)
-
-                    TriggerServerEvent("Ladders:StoreLadder", LadderNetID)
-
-                    ClearPedTasksImmediately(PlayerPed)
-
-                    TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingCarried", true)
-
-                    Carrying = LadderNetID
-
-                    NewNoti("~g~Ladder collected from vehicle.", false)
+                if Truck then
+                    TriggerServerEvent("Ladders:Server:Vehicles", "check", VehToNet(Truck[1]), Truck[2], false)
                 end
             else
                 NewNoti("~y~You already carrying a ladder!", true)
             end
-        elseif Action == "delete" then
+        elseif Action == "store" then
             if Carrying then
-                TriggerServerEvent("Ladders:DeleteLadder", Carrying)
+                local Truck = TruckTest()
+
+                if Truck then
+                    TriggerServerEvent("Ladders:Server:Vehicles", "check", VehToNet(Truck[1]), Truck[2], true)
+                end
             else
                 NewNoti("~y~You don't have a ladder out!", true)
             end
         else
-            NewNoti("~r~Invalid action!", true)
+            NewNoti("~r~Invalid action! Use: 'collect' or 'store'.", true)
         end
     else
         NewNoti("~r~No action specified!", true)
+    end
+end)
+
+RegisterNetEvent("Ladders:Client:VehicleCheck")
+AddEventHandler("Ladders:Client:VehicleCheck", function(TruckNetID, LadderCount, Max, ToRemove)
+    if ToRemove then
+        if LadderCount < Max then
+            local Ladder = NetToObj(Carrying)
+
+            DetachEntity(Ladder, false, false)
+            DeleteObject(Ladder)
+            SetEntityAsNoLongerNeeded(Ladder)
+            ClearPedTasksImmediately(PlayerPed)
+
+            TriggerServerEvent("Ladders:Server:Ladders", "delete", Carrying)
+            TriggerServerEvent("Ladders:Server:Vehicles", "add", TruckNetID)
+
+            Carrying = false
+
+            NewNoti("~g~Ladder stored. This vehicle can store " .. Max - (LadderCount + 1) .. " more ladders.", false)
+        else
+            NewNoti("~r~This vehicle can only carry " .. Max .. " ladders!", true)
+        end
+    else
+        if LadderCount > 0 then
+            local PlayerPed = PlayerPedId()
+            local LadderCoords = GetOffsetFromEntityInWorldCoords(PlayerPed, 0.0, 1.0, 0.0)
+            local Ladder = CreateObjectNoOffset(GetHashKey("prop_byard_ladder01"), LadderCoords, true, false, false)
+            local LadderNetID = ObjToNet(Ladder)
+            SetEntityAsMissionEntity(LadderNetID)
+            ClearPedTasksImmediately(PlayerPed)
+
+            TriggerServerEvent("Ladders:Server:Ladders", "store", LadderNetID)
+            TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingCarried", true)
+            TriggerServerEvent("Ladders:Server:Vehicles", "remove", TruckNetID)
+
+            Carrying = LadderNetID
+
+            NewNoti("~g~Ladder collected from vehicle. This vehicle has " .. LadderCount - 1 .. " more ladders.", false)
+        else
+            NewNoti("~r~This vehicle has no more ladders!", true)
+        end
     end
 end)
 
@@ -83,14 +115,12 @@ end)
 RegisterNetEvent("Ladders:Bounce:ServerValues")
 AddEventHandler("Ladders:Bounce:ServerValues", function(NewLadders) Ladders = NewLadders end)
 
-RegisterNetEvent("Ladders:Return:DropLadder")
-AddEventHandler("Ladders:Return:DropLadder", function()
+RegisterNetEvent("Ladders:Client:DropLadder")
+AddEventHandler("Ladders:Client:DropLadder", function()
     if Carrying then
         local PlayerPed = PlayerPedId()
         local Ladder = NetToObj(Carrying)
         local LadderNetID = Carrying
-        NetworkRequestControlOfEntity(Ladder)
-        NetworkRequestControlOfNetworkId(LadderNetID)
 
         Carrying = false
 
@@ -106,18 +136,16 @@ AddEventHandler("Ladders:Return:DropLadder", function()
         Citizen.Wait(1000)
 
         local LadderCoords = GetEntityCoords(Ladder)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingCarried", false)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "Dropped", true)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "x", LadderCoords.x)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "y", LadderCoords.y)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "z", LadderCoords.z)
-
-        SetNetworkIdCanMigrate(LadderNetID, true)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingCarried", false)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "Dropped", true)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "x", LadderCoords.x)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "y", LadderCoords.y)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "z", LadderCoords.z)
     end
 end)
 
-RegisterNetEvent("Ladders:Return:Pickup")
-AddEventHandler("Ladders:Return:Pickup", function(LadderNetID)
+RegisterNetEvent("Ladders:Client:Pickup")
+AddEventHandler("Ladders:Client:Pickup", function(LadderNetID)
     if not Carrying then
         local PlayerPed = PlayerPedId()
 
@@ -126,22 +154,20 @@ AddEventHandler("Ladders:Return:Pickup", function(LadderNetID)
 
         NewNoti("~g~Ladder picked up.", false)
 
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingCarried", true)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "Dropped", false)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "Placed", false)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingCarried", true)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "Dropped", false)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "Placed", false)
     end
 end)
 
-RegisterNetEvent("Ladders:Return:PlaceLadder")
-AddEventHandler("Ladders:Return:PlaceLadder", function()
+RegisterNetEvent("Ladders:Client:PlaceLadder")
+AddEventHandler("Ladders:Client:PlaceLadder", function()
     if Carrying then
         local PlayerPed = PlayerPedId()
         local Ladder = NetToObj(Carrying)
         local LadderNetID = Carrying
         local LadderCoords = GetOffsetFromEntityInWorldCoords(PlayerPed, 0.0, 0.5, 0.8)
         local LadderRot = GetEntityRotation(PlayerPed)
-        NetworkRequestControlOfEntity(Ladder)
-        NetworkRequestControlOfNetworkId(LadderNetID)
 
         DetachEntity(Ladder, false, false)
         ClearPedTasksImmediately(PlayerPed)
@@ -153,27 +179,23 @@ AddEventHandler("Ladders:Return:PlaceLadder", function()
 
         NewNoti("~g~Ladder placed.", false)
 
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingCarried", false)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "Dropped", false)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "Placed", true)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "x", LadderCoords.x)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "y", LadderCoords.y)
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "z", LadderCoords.z)
-
-        SetNetworkIdCanMigrate(LadderNetID, true)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingCarried", false)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "Dropped", false)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "Placed", true)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "x", LadderCoords.x)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "y", LadderCoords.y)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "z", LadderCoords.z)
     end
 end)
 
-RegisterNetEvent("Ladders:Return:Climb")
-AddEventHandler("Ladders:Return:Climb", function(LadderNetID, Dirrection)
+RegisterNetEvent("Ladders:Client:Climb")
+AddEventHandler("Ladders:Client:Climb", function(LadderNetID, Dirrection)
     if not Carrying then
         local PlayerPed = PlayerPedId()
         local Ladder = NetToObj(LadderNetID)
         ClimbingLadder = GetEntityRotation(Ladder)
-        NetworkRequestControlOfEntity(Ladder)
-        NetworkRequestControlOfNetworkId(LadderNetID)
 
-        TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingClimbed", true)
+        TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingClimbed", true)
 
         Climbing = true
 
@@ -226,7 +248,7 @@ AddEventHandler("Ladders:Return:Climb", function(LadderNetID, Dirrection)
 
             SetEntityCollision(Ladder, true, true)
 
-            TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingClimbed", false)
+            TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingClimbed", false)
         elseif Dirrection == "down" then
             SetEntityCoordsNoOffset(PlayerPed, GetOffsetFromEntityInWorldCoords(Ladder, 0.0, -0.4, 2.0), false, false, false)
             TaskPlayAnim(PlayerPed, "laddersbase", "get_on_top_front", 8.0, 8.0, 1.0, 15, 0, 0, 0, 0)
@@ -259,28 +281,9 @@ AddEventHandler("Ladders:Return:Climb", function(LadderNetID, Dirrection)
             FreezeEntityPosition(PlayerPed, false)
             SetEntityCollision(Ladder, true, true)
 
-            TriggerServerEvent("Ladders:UpdateLadder", LadderNetID, "BeingClimbed", false)
+            TriggerServerEvent("Ladders:Server:Ladders", "update", LadderNetID, "BeingClimbed", false)
         end
-
-        SetNetworkIdCanMigrate(LadderNetID, true)
     end
-end)
-
-RegisterNetEvent("Ladders:Return:DeleteLadder")
-AddEventHandler("Ladders:Return:DeleteLadder", function()
-    local PlayerPed = PlayerPedId()
-    local Ladder = NetToObj(Carrying)
-    NetworkRequestControlOfEntity(Ladder)
-    NetworkRequestControlOfNetworkId(Carrying)
-
-    Carrying = false
-
-    DetachEntity(Ladder, false, false)
-    DeleteObject(Ladder)
-    SetEntityAsNoLongerNeeded(Ladder)
-    ClearPedTasksImmediately(PlayerPed)
-
-    NewNoti("~g~Ladder deleted.", false)
 end)
 
 -- Draws notification on client's screen
@@ -304,7 +307,7 @@ function NewHint(Text)
 end
 
 -- Check if ped is near a valid vehicle to collect a ladder from
-function NearTruck()
+function TruckTest()
     local PlayerPed = PlayerPedId()
     local PlayerCoords = GetEntityCoords(PlayerPed, false)
     local OffSet = GetOffsetFromEntityInWorldCoords(PlayerPed, 0.0, 10.0, 0.0)
@@ -314,16 +317,16 @@ function NearTruck()
     if Vdist(PlayerCoords.x, PlayerCoords.y, PlayerCoords.z, RayCoords.x, RayCoords.y, RayCoords.z) < 3 then
         local Truck = GetEntityModel(RayEntity)
 
-        for _, Vehicle in ipairs(Config.Vehicles) do
+        for Vehicle, Max in pairs(Config.Vehicles) do
             local Key = GetHashKey(Vehicle)
 
-            if Key == Truck then return true end
+            if Key == Truck then return {RayEntity, Max} end
         end
 
-        NewNoti("~r~You cannnot take a ladder out of that!", true)
+        NewNoti("~r~This vehicles does not carry ladders!", true)
         return false
     else
-        NewNoti("~r~Nothing found to take ladder from!", true)
+        NewNoti("~r~No ladder carrying vehicle found!", true)
         return false
     end
 end
@@ -338,7 +341,14 @@ Citizen.CreateThread(function()
 	while true do
         Citizen.Wait(0)
 
+        local PlayerPed = PlayerPedId()
+
         if not Carrying then
+            if Clipset then
+                Clipset = false
+                ResetPedMovementClipset(PlayerPed, 0)
+            end
+
             for _, Ladder in pairs(Ladders) do
                 -- Return seems to oscillate between `number` and `table`, unclear why
                 if type(Ladder) == "table" then
@@ -351,7 +361,7 @@ Citizen.CreateThread(function()
                             NewHint("~INPUT_PICKUP~ Pick up ladder.")
 
                             if IsControlJustPressed(0, 38) then
-                                TriggerServerEvent("Ladders:Pickup", Ladder.ID)
+                                TriggerServerEvent("Ladders:Server:Ladders", "pickup", Ladder.ID)
                             end
                         end
                     elseif not Ladder.BeingCarried and
@@ -367,11 +377,11 @@ Citizen.CreateThread(function()
                             NewHint("~INPUT_CELLPHONE_UP~/~INPUT_CELLPHONE_DOWN~ Climb UP/DOWN\n~INPUT_ENTER~ Pick up ladder.")
 
                             if IsControlJustPressed(0, 172) then
-                                TriggerServerEvent("Ladders:Climb", Ladder.ID, "up")
+                                TriggerServerEvent("Ladders:Server:Ladders", "climb", Ladder.ID, "up")
                             elseif IsControlJustPressed(0, 173) then
-                                TriggerServerEvent("Ladders:Climb", Ladder.ID, "down")
+                                TriggerServerEvent("Ladders:Server:Ladders", "climb",Ladder.ID, "down")
                             elseif IsDisabledControlJustPressed(0, 23) then
-                                TriggerServerEvent("Ladders:Pickup", Ladder.ID)
+                                TriggerServerEvent("Ladders:Server:Ladders", "pickup",Ladder.ID)
                             end
                         end
                     end
@@ -385,11 +395,29 @@ Citizen.CreateThread(function()
                 Preview = false
             end
         else
+            if IsPedRunning(PlayerPed) or IsPedSprinting(PlayerPed) then
+                if not Clipset then
+                    Clipset = true
+
+                    if not HasAnimSetLoaded("MOVE_M@BAIL_BOND_TAZERED") then
+                        RequestAnimSet("MOVE_M@BAIL_BOND_TAZERED")
+                        while not HasAnimSetLoaded("MOVE_M@BAIL_BOND_TAZERED") do
+                            Wait(0)
+                        end
+                    end
+
+                    SetPedMovementClipset(PlayerPed, "MOVE_M@BAIL_BOND_TAZERED", 1.0)
+                end
+            elseif Clipset then
+                Clipset = false
+                ResetPedMovementClipset(PlayerPed, 1.0)
+            end
+
             NewHint("~INPUT_PICKUP~ Place ladder.\n~INPUT_ENTER~ Drop ladder.\n~INPUT_MP_TEXT_CHAT_TEAM~ Toggle preview.")
             if IsControlJustPressed(0, 38) then
-                TriggerServerEvent("Ladders:PlaceLadder", Carrying)
+                TriggerServerEvent("Ladders:Server:Ladders", "place", Carrying)
             elseif IsDisabledControlJustPressed(0, 23) then
-                TriggerServerEvent("Ladders:DropLadder", Carrying)
+                TriggerServerEvent("Ladders:Server:Ladders", "drop", Carrying)
             elseif IsControlJustPressed(0, 246) then
                 if PreviewToggle then
                     PreviewToggle = false
@@ -401,14 +429,11 @@ Citizen.CreateThread(function()
             end
 
             local Ladder = NetToObj(Carrying)
-            local PlayerPed = PlayerPedId()
             local Rot = GetWorldRotationOfEntityBone(PlayerPed, GetEntityBoneIndexByName(PlayerPed, "BONETAG_R_HAND"))
-            NetworkRequestControlOfEntity(Ladder)
-            NetworkRequestControlOfNetworkId(Carrying)
 
             AttachEntityToEntity(Ladder, PlayerPed, GetEntityBoneIndexByName(PlayerPed, "BONETAG_R_HAND"), 0.0, 0.1, 0.06, Rot.x + 80.0, Rot.y, Rot.z, false, false, false, true, 0, false)
 
-            DisableControlAction(0, 21, true) -- Sprint
+            --DisableControlAction(0, 21, true) -- Sprint
             DisableControlAction(0, 22, true) -- Jump
             DisableControlAction(0, 23, true) -- Enter vehicle
             DisableControlAction(0, 24, true) -- Attack (LMB)
@@ -444,7 +469,7 @@ Citizen.CreateThread(function()
         end
 
         if Climbing then
-            if Climbing == "rot" and ClimbingLadder then SetEntityRotation(PlayerPedId(), vector3(ClimbingLadder.x, ClimbingLadder.y, ClimbingLadder.z), 2, true) end
+            if Climbing == "rot" and ClimbingLadder then SetEntityRotation(PlayerPed, vector3(ClimbingLadder.x, ClimbingLadder.y, ClimbingLadder.z), 2, true) end
 
             DisableControlAction(0, 21, true) -- Sprint
             DisableControlAction(0, 22, true) -- Jump

@@ -1,4 +1,4 @@
--- Inferno Collection Ladders Version 1.0 Alpha
+-- Inferno Collection Ladders Version 1.1 Alpha
 --
 -- Copyright (c) 2019, Christopher M, Inferno Collection. All rights reserved.
 --
@@ -14,71 +14,51 @@
 --
 
 local Ladders = {}
+local Vehicles = {}
 
-RegisterServerEvent("Ladders:StoreLadder")
-AddEventHandler("Ladders:StoreLadder", function(LadderNetID)
-	if not Ladders[LadderNetID] then
+RegisterServerEvent("Ladders:Server:Ladders")
+AddEventHandler("Ladders:Server:Ladders", function(Action, LadderNetID, Key, Value)
+    if Action == "store" and not Ladders[LadderNetID] then
         Ladders[LadderNetID] = {}
         Ladders[LadderNetID].ID = LadderNetID
-
-        TriggerClientEvent("Ladders:Bounce:ServerValues", -1, Ladders)
-	end
-end)
-
-RegisterServerEvent("Ladders:UpdateLadder")
-AddEventHandler("Ladders:UpdateLadder", function(LadderNetID, Key, Value)
-	if Ladders[LadderNetID] then
-        Ladders[LadderNetID][Key] = Value
-
-        TriggerClientEvent("Ladders:Bounce:ServerValues", -1, Ladders)
-    end
-end)
-
-RegisterServerEvent("Ladders:DropLadder")
-AddEventHandler("Ladders:DropLadder", function(LadderNetID)
-    if Ladders[LadderNetID] then
-        if Ladders[LadderNetID].BeingCarried then
-            TriggerClientEvent("Ladders:Return:DropLadder", source)
+    elseif Ladders[LadderNetID] then
+        if Action == "update" then
+            Ladders[LadderNetID][Key] = Value
+        elseif Action == "pickup" then
+            if not Ladders[LadderNetID].BeingCarried and not Ladders[LadderNetID].BeingClimbed then
+                TriggerClientEvent("Ladders:Client:Pickup", source, LadderNetID)
+            end
+        elseif Action == "climb" then
+            if Ladders[LadderNetID].Placed and not Ladders[LadderNetID].BeingClimbed then
+                TriggerClientEvent("Ladders:Client:Climb", source, LadderNetID, Key)
+            end
+        elseif Action == "delete" then
+            Ladders[LadderNetID] = nil
+        elseif Ladders[LadderNetID].BeingCarried then
+            if Action == "drop" then
+                TriggerClientEvent("Ladders:Client:DropLadder", source)
+            elseif Action == "place" then
+                TriggerClientEvent("Ladders:Client:PlaceLadder", source)
+            end
         end
     end
+
+    TriggerClientEvent("Ladders:Bounce:ServerValues", -1, Ladders)
 end)
 
-RegisterServerEvent("Ladders:PlaceLadder")
-AddEventHandler("Ladders:PlaceLadder", function(LadderNetID)
-    if Ladders[LadderNetID] then
-        if Ladders[LadderNetID].BeingCarried then
-            TriggerClientEvent("Ladders:Return:PlaceLadder", source)
+RegisterServerEvent("Ladders:Server:Vehicles")
+AddEventHandler("Ladders:Server:Vehicles", function(Action, Vehicle, Max, ToRemove)
+    if Action == "check" then
+        if not Vehicles[Vehicle] then
+            Vehicles[Vehicle] = Max
+        end
+
+        TriggerClientEvent("Ladders:Client:VehicleCheck", source, Vehicle, Vehicles[Vehicle], Max, ToRemove)
+    elseif Vehicles[Vehicle] then
+        if Action == "add" then
+            Vehicles[Vehicle] = Vehicles[Vehicle] + 1
+        elseif Action == "remove" then
+            Vehicles[Vehicle] = Vehicles[Vehicle] - 1
         end
     end
-end)
-
-RegisterServerEvent("Ladders:Pickup")
-AddEventHandler("Ladders:Pickup", function(LadderNetID)
-    if Ladders[LadderNetID] then
-        if not Ladders[LadderNetID].BeingCarried and not Ladders[LadderNetID].BeingClimbed then
-            TriggerClientEvent("Ladders:Return:Pickup", source, LadderNetID)
-        end
-    end
-end)
-
-RegisterServerEvent("Ladders:Climb")
-AddEventHandler("Ladders:Climb", function(LadderNetID, Dirrection)
-    if Ladders[LadderNetID] then
-        if Ladders[LadderNetID].Placed and not Ladders[LadderNetID].BeingClimbed then
-            TriggerClientEvent("Ladders:Return:Climb", source, LadderNetID, Dirrection)
-        end
-    end
-end)
-
-RegisterServerEvent("Ladders:DeleteLadder")
-AddEventHandler("Ladders:DeleteLadder", function(LadderNetID)
-    if Ladders[LadderNetID] then
-        TriggerClientEvent("Ladders:Return:DeleteLadder", source)
-
-        Citizen.Wait(1000)
-
-        Ladders[LadderNetID] = nil
-
-        TriggerClientEvent("Ladders:Bounce:ServerValues", -1, Ladders)
-	end
 end)
