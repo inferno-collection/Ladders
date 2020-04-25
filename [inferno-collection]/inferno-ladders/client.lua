@@ -68,6 +68,34 @@ RegisterCommand("ladder", function(source, Args)
         NewNoti("~r~No action specified!", true)
     end
 end)
+RegisterCommand("refill", function(source, Args)
+
+                local Truck = TruckTest()
+				local PlayerPed = PlayerPedId()
+				local scenario = 'PROP_HUMAN_BUM_SHOPPING_CART'
+
+     if Truck then
+	 Citizen.Wait(250)
+	--loadanimdict('mp_arresting')
+	--TaskPlayAnim(GetPlayerPed(-1), 'mp_arresting', 'a_uncuff', 8.0, -8,-1, 2, 0, 0, 0, 0)
+	TaskStartScenarioInPlace(PlayerPed, scenario, 13000, 1)
+            Citizen.Wait(13000)
+	--Citizen.Wait(10000)
+	ClearPedTasks(GetPlayerPed(-1))
+
+		AddAmmoToPed(PlayerPed,0x60EC506, 500)
+		NewNoti("~y~Refilled !!", true)
+            else
+                --NewNoti("~y~You are not near a fire truck!", true)
+            end
+        
+end)
+function loadanimdict(dict)
+	while (not HasAnimDictLoaded(dict)) do 
+		RequestAnimDict(dict)
+		Citizen.Wait(5)
+	end
+end
 
 RegisterNetEvent("Ladders:Client:VehicleCheck")
 AddEventHandler("Ladders:Client:VehicleCheck", function(TruckNetID, LadderCount, Max, ToRemove)
@@ -326,10 +354,14 @@ function TruckTest()
         NewNoti("~r~This vehicles does not carry ladders!", true)
         return false
     else
-        NewNoti("~r~No ladder carrying vehicle found!", true)
+        NewNoti("~r~No fire vehicle found!", true)
         return false
     end
 end
+
+
+
+
 
 -- Gets distance between player and provided coords
 function GetDistanceBetween(Coords)
