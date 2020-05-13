@@ -1,4 +1,4 @@
--- Inferno Collection Ladders Version 1.1 Alpha
+-- Inferno Collection Ladders Version 1.11 Alpha
 --
 -- Copyright (c) 2019, Christopher M, Inferno Collection. All rights reserved.
 --

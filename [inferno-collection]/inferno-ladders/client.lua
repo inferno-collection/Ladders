@@ -1,4 +1,4 @@
--- Inferno Collection Ladders Version 1.1 Alpha
+-- Inferno Collection Ladders Version 1.11 Alpha
 --
 -- Copyright (c) 2019, Christopher M, Inferno Collection. All rights reserved.
 --
@@ -216,7 +216,7 @@ AddEventHandler("Ladders:Client:Climb", function(LadderNetID, Dirrection)
         Climbing = "rot"
 
         if Dirrection == "up" then
-            SetEntityCoordsNoOffset(PlayerPed, GetOffsetFromEntityInWorldCoords(Ladder, 0.0, -0.35, -0.7), false, false, false)
+            SetEntityCoordsNoOffset(PlayerPed, GetOffsetFromEntityInWorldCoords(Ladder, 0.0, -0.45, -0.7), false, false, false)
             TaskPlayAnim(PlayerPed, "laddersbase", "get_on_bottom_front_stand_high", 8.0, 8.0, 1.0, 15, 0, 0, 0, 0)
 
             Citizen.Wait(1000)
