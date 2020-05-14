@@ -245,7 +245,7 @@ AddEventHandler('Ladders:Client:Climb', function(LadderNetID, Direction)
                 for _, Element in pairs(Pack) do
                     SetEntityCoordsNoOffset(PlayerPed, GetOffsetFromEntityInWorldCoords(Ladder, Element[1]), false, false, false)
                     TaskPlayAnim(PlayerPed, Element[2], Element[3], 8.0, 8.0, 1.0, 15, 0, 0, 0, 0)
-        
+
                     Citizen.Wait(1000)
                 end
             end
