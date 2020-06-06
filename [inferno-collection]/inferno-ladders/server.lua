@@ -1,4 +1,4 @@
--- Inferno Collection Ladders Version 1.2 Alpha
+-- Inferno Collection Ladders Version 1.3 Alpha
 --
 -- Copyright (c) 2019, Christopher M, Inferno Collection. All rights reserved.
 --
@@ -15,6 +15,15 @@
 
 local Ladders = {}
 local Vehicles = {}
+
+RegisterServerEvent('Ladders:Server:Ladders:Local')
+AddEventHandler('Ladders:Server:Ladders:Local', function(Action)
+    if Action == "add" then
+        TriggerClientEvent('Ladders:Client:Local:Add', -1, source)
+    else
+        TriggerClientEvent('Ladders:Client:Local:Remove', -1, source)
+    end
+end)
 
 RegisterServerEvent('Ladders:Server:Ladders')
 AddEventHandler('Ladders:Server:Ladders', function(Action, LadderNetID, Key, Value)
@@ -34,12 +43,6 @@ AddEventHandler('Ladders:Server:Ladders', function(Action, LadderNetID, Key, Val
             end
         elseif Action == 'delete' then
             Ladders[LadderNetID] = nil
-        elseif Ladders[LadderNetID].BeingCarried then
-            if Action == 'drop' then
-                TriggerClientEvent('Ladders:Client:DropLadder', source)
-            elseif Action == 'place' then
-                TriggerClientEvent('Ladders:Client:PlaceLadder', source)
-            end
         end
     end
 
@@ -59,4 +62,9 @@ AddEventHandler('Ladders:Server:Vehicles', function(Action, Vehicle, Max, ToRemo
             Vehicles[Vehicle] = Vehicles[Vehicle] - 1
         end
     end
+end)
+
+RegisterServerEvent('Ladders:Server:PersonalRequest')
+AddEventHandler('Ladders:Server:PersonalRequest', function()
+    TriggerClientEvent('Ladders:Bounce:ServerValues', -1, Ladders)
 end)
