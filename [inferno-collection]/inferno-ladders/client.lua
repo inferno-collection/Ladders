@@ -280,6 +280,7 @@ AddEventHandler('Ladders:Client:Climb', function(LadderNetID, Direction)
             SetEntityCoordsNoOffset(PlayerPed, GetOffsetFromEntityInWorldCoords(Ladder, 0.0, -0.9, -1.4), false, false, false)
         end
 
+        ClearPedTasksImmediately(PlayerPed)
         FreezeEntityPosition(PlayerPed, false)
         SetEntityCollision(Ladder, true, true)
 
