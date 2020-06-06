@@ -198,7 +198,7 @@ AddEventHandler('Ladders:Client:Pickup', function(LadderNetID)
         while not NetworkHasControlOfNetworkId(LadderNetID) do
             Citizen.Wait(0)
         end
-        
+
         local Ladder = NetToObj(LadderNetID)
         DeleteObject(Ladder)
         SetEntityAsNoLongerNeeded(Ladder)
@@ -355,7 +355,7 @@ Citizen.CreateThread(function()
                                 NewHint('~INPUT_PICKUP~ Pick up ladder')
 
                                 if IsControlJustPressed(0, 38) then TriggerServerEvent('Ladders:Server:Ladders', 'pickup', Ladder.ID) end
-                                
+
                                 break
                             end
                         elseif not Ladder.Dropped and Ladder.Placed and not Climbing then
