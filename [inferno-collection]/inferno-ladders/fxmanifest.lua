@@ -1,4 +1,4 @@
--- Inferno Collection Ladders Version 1.3 Alpha
+-- Inferno Collection Ladders Version 1.3 Beta
 --
 -- Copyright (c) 2019-2020, Christopher M, Inferno Collection. All rights reserved.
 --
@@ -14,7 +14,7 @@ description 'Adds working ladders to FiveM, ideal for Fire Department use.'
 
 author 'Inferno Collection (inferno-collection.com)'
 
-version '1.3 Alpha'
+version '1.3 Beta'
 
 url 'https://inferno-collection.com'
 
@@ -22,6 +22,6 @@ client_script 'client.lua'
 
 server_script 'server.lua'
 
-game 'gta5'
-
 fx_version 'bodacious'
+
+game 'gta5'
